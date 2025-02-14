@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 #     allow_headers=["*"],  # Allow all headers
 # )
 
-app.add_middleware(GZipMiddleware)  # Enables response compression
+app.add_middleware(GZipMiddleware) 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Adjust as needed
 # app.add_middleware(SessionMiddleware, secret_key="your_secret_key")
 
