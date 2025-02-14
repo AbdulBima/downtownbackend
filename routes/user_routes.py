@@ -60,7 +60,27 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     expire =  datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+def verify_jwt_token(token: str) -> dict:
+    try:
+        # Decode the JWT token and verify it
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # You can also check for expiration time here
+        if payload["exp"] < datetime.now(timezone.utc).timestamp():
+            raise HTTPException(status_code=401, detail="Token has expired")
+        return True
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
+# Endpoint to verify the token and return True if valid
+@router.get("/verify-token", response_model=dict)
+async def verify_token(token: str = Depends(oauth2_scheme)):
+    is_valid = verify_jwt_token(token)
+    if is_valid:
+        return {"valid": True}
+    else:
+        raise HTTPException(status_code=401, detail="Invalid token")
 # POST - Create User
 @router.post("/users/create")
 async def create_user(user: UserSerializer):
