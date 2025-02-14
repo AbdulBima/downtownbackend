@@ -42,10 +42,14 @@ def customer_helper(customer) -> dict:
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
-# Security Config
-SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key")  # Replace with a secure key
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Token valid for 1 hour
+# Security Config (Load values from .env)
+SECRET_KEY = os.getenv("SECRET_KEY", "mistaemonma")  # Default to "mistaemonma" if SECRET_KEY is not set in .env
+ALGORITHM = os.getenv("ALGORITHM", "HS256")  # Default to "HS256" if ALGORITHM is not set in .env
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))  # Default to 30 minutes if not set
+
+# Initialize OAuth2PasswordBearer for token extraction from request header
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login")
+
 
 # Password hashing setup
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
