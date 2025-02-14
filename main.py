@@ -30,7 +30,7 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Adjust as need
 # app.add_middleware(SessionMiddleware, secret_key="your_secret_key")
 
 
-# app.add_middleware(AuthMiddleware)  # This applies AuthMiddleware to all routes
+# app.add_middleware(AuthMiddleware)  
 
 # Register all routers
 app.include_router(users_router, prefix="/api/uscu", tags=["Admissions"])
