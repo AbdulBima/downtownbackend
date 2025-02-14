@@ -1,0 +1,7 @@
+motor
+python-dotenv
+pydantic
+fastapi
+starlette
+pymongo
+PyJWT
