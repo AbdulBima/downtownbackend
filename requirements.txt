@@ -6,3 +6,4 @@ starlette
 pymongo
 PyJWT
 uvicorn
+passlib
