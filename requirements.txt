@@ -1,6 +1,6 @@
 motor
 python-dotenv
-pydantic
+pydantic[email]
 fastapi
 starlette
 pymongo
