@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"]# List of allowed origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Allow these methods
     allow_headers=["*"],  # Allow all headers
@@ -33,7 +33,7 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Adjust as need
 # app.add_middleware(AuthMiddleware)  
 
 # Register all routers
-app.include_router(users_router, prefix="/api/uscu", tags=["Admissions"])
+app.include_router(users_router, prefix="/api/uscu", tags=["USCU"])
 
 @app.get("/")
 async def root():
