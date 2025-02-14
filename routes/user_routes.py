@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 import os
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
 import jwt
 from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import BaseModel, EmailStr
