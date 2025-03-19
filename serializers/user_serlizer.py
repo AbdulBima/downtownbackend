@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 # Pydantic Model for User
@@ -19,3 +19,48 @@ class CustomerSerializer(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+    
+    
+class ReceiptCustomerData(BaseModel):
+    name: str
+    contact: str
+    address: str
+
+    
+class ReceiptData(BaseModel):
+    id: str
+    date: str  # e.g. "YYYY-MM-DD"
+    customer: ReceiptCustomerData
+    productType: str  # e.g. "pp" or "injection"
+    processType: List[str]  # e.g. ["R", "B"]
+    kgIn: float
+    kgOut: float
+    status: str
+    recycler: Optional[str] = None
+    amount: Optional[int] = None
+
+
+class CustomerData(BaseModel):
+    name: str
+    contact: str
+    address: str
+
+class InvoiceData(BaseModel):
+    id: str
+    date: str  # e.g., "YYYY-MM-DD"
+    customer: CustomerData
+    productType: str
+    processType: List[str]
+    kgIn: float
+    kgOut: Optional[float] = 0.0
+    status: str
+    amount: float
+    
+    
+class SaleData(BaseModel):
+    id: str
+    date: str  # "YYYY-MM-DD"
+    customer: CustomerData
+    productType: str
+    kg: float
+    amount: float

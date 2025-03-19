@@ -1,4 +1,3 @@
-
 from datetime import datetime, timedelta, timezone
 
 
@@ -6,6 +5,13 @@ import os
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from typing import Optional, List
+from fastapi.responses import StreamingResponse
+from io import BytesIO
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, landscape
 
 import jwt
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -14,7 +20,7 @@ from config.database import db  # MongoDB connection
 from passlib.context import CryptContext
 
 
-from serializers.user_serlizer import CustomerSerializer, LoginRequest
+from serializers.user_serlizer import CustomerSerializer, InvoiceData, LoginRequest, ReceiptData, SaleData
 
 router = APIRouter()
 users_collection =  db.downtown_users
@@ -30,6 +36,241 @@ class UserSerializer(BaseModel):
     email: EmailStr
     password: str
 
+
+def create_pdf(receipt: ReceiptData) -> BytesIO:
+    buffer = BytesIO()
+    # Set up the canvas in landscape mode
+    pdf = canvas.Canvas(buffer, pagesize=landscape(letter))
+    page_width, page_height = landscape(letter)
+
+    # ---------------------------
+    # Header Section
+    # ---------------------------
+    pdf.setFillColorRGB(0.1, 0.4, 0.8)  # Blue header background
+    pdf.rect(0, page_height - 100, page_width, 100, fill=1, stroke=0)
+    
+    pdf.setFillColorRGB(1, 1, 1)
+    pdf.setFont("Helvetica-Bold", 24)
+    pdf.drawCentredString(page_width / 2, page_height - 60, "Downtown Plastic & Recycling LTD")
+    pdf.setFont("Helvetica", 12)
+    pdf.drawCentredString(
+        page_width / 2,
+        page_height - 80,
+        "Contact: 08065566537, 08088877795 | No 2, Shasan, Small Scale Industry, Kano"
+    )
+
+    # ---------------------------
+    # Build Table Data (Item - Value)
+    # ---------------------------
+    data = [
+        ["Item", "Value"],
+        ["Receipt ID", receipt.id],
+        ["Date", receipt.date],
+        ["Customer", receipt.customer.name],
+        ["Contact", receipt.customer.contact],
+        ["Address", receipt.customer.address],
+        ["Product Type", receipt.productType],
+        ["Process Type", ", ".join(receipt.processType)],
+        ["Kg In", str(receipt.kgIn)],
+        ["Kg Out", str(receipt.kgOut)],
+        ["Status", receipt.status],
+    ]
+    if receipt.amount is not None:
+        data.append(["Total Amount", f"N{receipt.amount:,}"])
+
+    # ---------------------------
+    # Create and Style the Table
+    # ---------------------------
+    table = Table(data)
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E78')),  # Header background
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.gray),
+    ])
+    table.setStyle(style)
+
+    # ---------------------------
+    # Center the Table on the Page
+    # ---------------------------
+    table_width, table_height = table.wrap(0, 0)
+    table_x = (page_width - table_width) / 2
+    # Position the table below the header with some margin
+    table_y = page_height - 150 - table_height  
+    table.drawOn(pdf, table_x, table_y)
+
+    # ---------------------------
+    # Thank You Message Immediately After the Table
+    # ---------------------------
+    # Draw the message 20 units below the bottom of the table
+    pdf.setFillColorRGB(0, 0, 0)
+    pdf.setFont("Helvetica-Oblique", 14)
+    pdf.drawCentredString(page_width / 2, table_y - 20, "Thank you for your business!")
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+    
+def create_invoice_pdf(invoice: InvoiceData) -> BytesIO:
+    buffer = BytesIO()
+    # Use landscape mode for the page
+    pdf = canvas.Canvas(buffer, pagesize=landscape(letter))
+    page_width, page_height = landscape(letter)
+
+    # ---------------------------
+    # Header Section with Business Details
+    # ---------------------------
+    pdf.setFillColorRGB(0.8, 0, 0)  # Red background tone
+    pdf.rect(0, page_height - 100, page_width, 100, fill=1, stroke=0)
+    
+    # Invoice Title
+    pdf.setFillColorRGB(1, 1, 1)
+    pdf.setFont("Helvetica-Bold", 26)
+    pdf.drawCentredString(page_width / 2, page_height - 40, "INVOICE")
+    
+    # Business Name
+    pdf.setFont("Helvetica", 14)
+    pdf.drawCentredString(page_width / 2, page_height - 70, "Downtown Plastic & Recycling LTD")
+    
+    # Business Contact Details
+    pdf.setFont("Helvetica", 10)
+    pdf.drawCentredString(
+        page_width / 2,
+        page_height - 90,
+        "Contact: 08065566537, 08088877795 | No 2, Shasan, Small Scale Industry, Kano"
+    )
+
+    # ---------------------------
+    # Build Table Data (Field - Detail)
+    # ---------------------------
+    data = [
+        ["Field", "Detail"],
+        ["Invoice ID", str(invoice.id)],
+        ["Date", invoice.date],
+        ["Customer", invoice.customer.name],
+        ["Contact", invoice.customer.contact],
+        ["Address", invoice.customer.address],
+        ["Product Type", invoice.productType],
+        ["Process Type", ", ".join(invoice.processType)],
+        ["Kg In", str(invoice.kgIn)],
+        ["Kg Out", str(invoice.kgOut)],
+        ["Status", invoice.status],
+        ["Total Amount", f"N{invoice.amount:,}"],
+    ]
+
+    # ---------------------------
+    # Create and Style the Table
+    # ---------------------------
+    table = Table(data, colWidths=[200, page_width - 250])
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),  # Header row background
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 16),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+    ])
+    table.setStyle(style)
+
+    # Center the table on the page
+    table_width, table_height = table.wrap(0, 0)
+    table_x = (page_width - table_width) / 2
+    # Position the table below the header (with some vertical margin)
+    table_y = page_height - 150 - table_height  
+    table.drawOn(pdf, table_x, table_y)
+
+    # ---------------------------
+    # Footer Message (Immediately After the Table)
+    # ---------------------------
+    pdf.setFillColorRGB(0, 0, 0)
+    pdf.setFont("Helvetica-Oblique", 14)
+    pdf.drawCentredString(page_width / 2, table_y - 30, "Thank you.")
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+    
+    
+def create_sale_pdf(sale: SaleData) -> BytesIO:
+    buffer = BytesIO()
+    # Create a canvas in landscape mode
+    pdf = canvas.Canvas(buffer, pagesize=landscape(letter))
+    page_width, page_height = landscape(letter)
+
+    # ---------------------------
+    # Header Section (Green Background)
+    # ---------------------------
+    pdf.setFillColorRGB(0.2, 0.6, 0.2)  # A green tone for sales
+    pdf.rect(0, page_height - 100, page_width, 100, fill=1, stroke=0)
+    
+    # Header texts
+    pdf.setFillColorRGB(1, 1, 1)
+    pdf.setFont("Helvetica-Bold", 24)
+    pdf.drawCentredString(page_width / 2, page_height - 60, "SALES RECEIPT")
+    pdf.setFont("Helvetica", 12)
+    pdf.drawCentredString(page_width / 2, page_height - 80, "Downtown Plastic & Recycling LTD")
+    pdf.setFont("Helvetica", 10)
+    pdf.drawCentredString(
+        page_width / 2,
+        page_height - 95,
+        "Contact: 08065566537, 08088877795 | No 2, Shasan, Small Scale Industry, Kano"
+    )
+
+    # ---------------------------
+    # Build Table Data (Field - Detail)
+    # ---------------------------
+    data = [
+        ["Field", "Detail"],
+        ["Sale ID", sale.id],
+        ["Date", sale.date],
+        ["Customer", sale.customer.name],
+        ["Contact", sale.customer.contact],
+        ["Address", sale.customer.address],
+        ["Product", sale.productType],
+        ["Kg", str(sale.kg)],
+        ["Amount", f"N{sale.amount:,}"],
+    ]
+
+    # ---------------------------
+    # Create and Style the Table
+    # ---------------------------
+    table = Table(data, colWidths=[150, page_width - 200])
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.darkgrey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+    ])
+    table.setStyle(style)
+
+    # Center the table on the page
+    table_width, table_height = table.wrap(0, 0)
+    table_x = (page_width - table_width) / 2
+    table_y = page_height - 150 - table_height  # position below the header
+    table.drawOn(pdf, table_x, table_y)
+
+    # ---------------------------
+    # Footer Message Immediately After the Table
+    # ---------------------------
+    pdf.setFillColorRGB(0, 0, 0)
+    pdf.setFont("Helvetica-Oblique", 14)
+    pdf.drawCentredString(page_width / 2, table_y - 30, "Thank you for your business!")
+
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
+   
 # ✅ MongoDB Helper Function to Convert ObjectId
 def customer_helper(customer) -> dict:
     return {
@@ -214,3 +455,17 @@ async def delete_customer(customer_id: str):
         raise HTTPException(status_code=404, detail="Customer not found")
 
     return {"message": "Customer deleted successfully", "id": customer_id}
+
+
+# POST endpoint that receives receipt data and returns a PDF file
+@router.post("/receipts/generate-pdf", response_class=StreamingResponse)
+async def generate_receipt_pdf(receipt: ReceiptData):
+    pdf_buffer = create_pdf(receipt)
+    headers = {"Content-Disposition": "attachment; filename=receipt.pdf"}
+    return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
+
+@router.post("/invoices/generate-pdf", response_class=StreamingResponse)
+async def generate_invoice_pdf(invoice: InvoiceData):
+    pdf_buffer = create_invoice_pdf(invoice)
+    headers = {"Content-Disposition": "attachment; filename=invoice.pdf"}
+    return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)

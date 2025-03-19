@@ -7,6 +7,15 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 # from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import JSONResponse 
 from routes.user_routes import router as users_router
+from routes.prices_routes import router as prices_router
+from routes.expenses_routes import router as expenses_router
+from routes.customer_routes import router as customer_router
+from routes.staffs_routes import router as staffs_router
+from routes.sales_routes import router as sales_router
+from routes.purchases_routes import router as purchases_router
+from routes.labour_routes import router as labour_router
+from routes.invoice_routes import router as invoice_router
+from routes.stats_routes import router as stats_router
 from dependencies import api_key_dependency
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -29,11 +38,21 @@ app.add_middleware(GZipMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Adjust as needed
 # app.add_middleware(SessionMiddleware, secret_key="your_secret_key")
 
-
+ 
 # app.add_middleware(AuthMiddleware)  
 
 # Register all routers
 app.include_router(users_router, prefix="/api/uscu", tags=["USCU"])
+app.include_router(prices_router, prefix="/api/prices", tags=["Prices"])
+app.include_router(expenses_router, prefix="/api/expenses", tags=["Expenses"])
+app.include_router(customer_router, prefix="/api/customers", tags=["Customers"])
+app.include_router(staffs_router, prefix="/api/staffs", tags=["Staffs"])
+app.include_router(sales_router, prefix="/api/sales", tags=["Sales"])
+app.include_router(purchases_router, prefix="/api/purchases", tags=["Purchases"])
+app.include_router(labour_router, prefix="/api/labours", tags=["Labours"])
+app.include_router(invoice_router, prefix="/api/invoices", tags=["Invoices"])
+app.include_router(stats_router, prefix="/api/stats", tags=["Stats"])
+
 
 @app.get("/")
 async def root():
